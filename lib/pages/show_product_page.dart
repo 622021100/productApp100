@@ -4,6 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:http/http.dart' as http;
+import 'package:productapp/models/product_model.dart';
+import 'package:productapp/pages/add_product_page.dart';
+import 'package:productapp/pages/edit_product_page.dart';
+import 'package:productapp/pages/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ShowProductPage extends StatefulWidget {
@@ -16,13 +20,29 @@ class ShowProductPage extends StatefulWidget {
 class _ShowProductPageState extends State<ShowProductPage> {
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
 
+  List<Product>? products;
+
   @override
   void initState() {
     super.initState();
     getList();
   }
 
-  Future<String?> getList() async {}
+  Future<String?> getList() async {
+    SharedPreferences prefs = await _prefs;
+
+    products = [];
+    var url = Uri.parse('https://laravelbackend100.herokuapp.com/api/products');
+
+    var response = await http.get(url, headers: {
+      HttpHeaders.contentTypeHeader: 'application/json',
+      HttpHeaders.authorizationHeader: 'Bearer ${prefs.getString('token')}'
+    });
+
+    var jsonString = jsonDecode(response.body);
+
+    return response.body;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,8 +64,13 @@ class _ShowProductPageState extends State<ShowProductPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Move to Add Product Page
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AddProductPage(),
+              )).then((value) => setState(() {}));
         },
+        // Move to Add Product Page
         child: const Icon(Icons.add),
       ),
     );
@@ -65,28 +90,52 @@ class _ShowProductPageState extends State<ShowProductPage> {
       future: getList(),
       builder: (context, snapshot) {
         List<Widget> myList;
-
         if (snapshot.hasData) {
-          // Convert snapshot.data to jsonString
+          var jsonString = jsonDecode(snapshot.data.toString());
+          List<Product>? products = jsonString['payload']
+              .map<Product>((json) => Product.fromJson(json))
+              .toList();
 
-          // Create List of Product by using Product Model
-
-          // Define Widgets to myList
           myList = [
             Column(
               children: products!.map((item) {
                 return Card(
                   child: ListTile(
                     onTap: () {
-                      // Navigate to Edit Product
+                      // ignore: avoid_print
+                      print('${item.id}');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProductPage(id: item.id),
+                        ),
+                      ).then((value) => setState(() {}));
                     },
-                    title: Text('Place Productname Here'),
-                    subtitle: Text('Place Price Here'),
+                    title: Text('${item.productName}'),
+                    subtitle: Text('${item.price}' + '฿'),
                     trailing: IconButton(
                       onPressed: () {
-                        // Create Alert Dialog
-
-                        // Show Alert Dialog
+                        var alertDialog = AlertDialog(
+                          title: const Text('Delete Product Confiramation'),
+                          content: Text(
+                              'คุณต้องการลบสินค้า ${item.productName} ใช่หรือไม่'),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('ยกเลิก')),
+                            TextButton(
+                                onPressed: () {
+                                  deleteProduct(item.id)
+                                      .then((value) => setState(() {}));
+                                },
+                                child: const Text('ยืนยัน',
+                                    style: TextStyle(color: Colors.red))),
+                          ],
+                        );
+                        showDialog(
+                          context: context,
+                          builder: (context) => alertDialog,
+                        );
                       },
                       icon: const Icon(
                         Icons.delete_forever,
@@ -134,22 +183,33 @@ class _ShowProductPageState extends State<ShowProductPage> {
   }
 
   Future<void> deleteProduct(int? id) async {
-    // Call SharedPreference to get Token
+    SharedPreferences prefs = await _prefs;
+    var url =
+        Uri.parse('https://laravelbackend100.herokuapp.com/api/products/$id');
 
-    // Define Laravel API for Deleting Produce
+    var response = await http.delete(url, headers: {
+      HttpHeaders.authorizationHeader: 'Bearer ${prefs.getString('token')}'
+    });
 
-    // Request deleting product
-
-    // Check Status Code, then pop to the previous
+    if (response.statusCode == 200) {
+      Navigator.pop(context);
+    }
   }
 
   Future<void> logout() async {
-    // Call SharedPreference to get Token
+    SharedPreferences prefs = await _prefs;
+    var url = Uri.parse('https://laravelbackend100.herokuapp.com/api/logout');
 
-    // Define Laravel API for Logout
+    var response = await http.post(url, headers: {
+      HttpHeaders.contentTypeHeader: 'application/json',
+      HttpHeaders.authorizationHeader: 'Bearer ${prefs.getString('token')}'
+    });
 
-    // Request for logging out
-
-    // Check Status Code, remove sharedpreference, then pop to the previous
+    if (response.statusCode == 200) {
+      prefs.remove('user');
+      prefs.remove('token');
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (context) => const LoginPage()));
+    }
   }
 }

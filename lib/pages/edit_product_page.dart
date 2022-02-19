@@ -7,9 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 class EditProductPage extends StatefulWidget {
-  const EditProductPage({Key? key}) : super(key: key);
+  const EditProductPage({Key? key, this.id}) : super(key: key);
 
-  // Declare varible for product id
+  final int? id;
 
   @override
   _EditProductPageState createState() => _EditProductPageState();
@@ -49,13 +49,16 @@ class _EditProductPageState extends State<EditProductPage> {
   }
 
   Future<String> getProductById() async {
-    // Call SharedPreference to get Token
+    final SharedPreferences prefs = await _prefs;
 
-    // Define Laravel API for Retrieving Product
+    var url = Uri.parse(
+        'https://laravelbackend100.herokuapp.com/api/products/${widget.id}');
+    var response = await http.get(url, headers: {
+      HttpHeaders.contentTypeHeader: 'application/json',
+      HttpHeaders.authorizationHeader: 'Bearer ${prefs.getString('token')}'
+    });
 
-    // Request for editing product
-
-    // return body of response
+    return response.body;
   }
 
   @override
@@ -92,11 +95,14 @@ class _EditProductPageState extends State<EditProductPage> {
               ),
             );
           } else {
-            // Convert snapshot to jsonString
+            var payload = jsonDecode(snapshot.data.toString())['payload'];
 
-            // Find index of requsted product type
+            var ind = dropdownItems.indexWhere(
+                (element) => element.value == payload['product_type']);
 
-            // Initialize value of each textfield and dropdown
+            _name.text = payload['product_name'];
+            _price.text = payload['price'].toString();
+            _selectedType = dropdownMenuItems[ind].value!;
 
             return ListView(
               children: [
@@ -224,16 +230,23 @@ class _EditProductPageState extends State<EditProductPage> {
   }
 
   Future<void> updateProduct() async {
-    // Call SharedPreference to get Token
+    SharedPreferences prefs = await _prefs;
 
-    // Check Valid Form
-
-    // Covert Values to Json
-
-    // Define Laravel API for Updating Product
-
-    // Request for updating product
-
-    // Check Status Code, then pop to the previous
+    if (_editFormKey.currentState!.validate()) {
+      var data = jsonEncode({
+        "product_name": _name.text,
+        "price": _price.text,
+        "product_type": _selectedType.value,
+      });
+      var url = Uri.parse(
+          'https://laravelbackend100.herokuapp.com/api/products/${widget.id}');
+      var response = await http.put(url, body: data, headers: {
+        HttpHeaders.contentTypeHeader: 'application/json',
+        HttpHeaders.authorizationHeader: 'Bearer ${prefs.getString('token')}'
+      });
+      if (response.statusCode == 200) {
+        Navigator.pop(context);
+      }
+    }
   }
 }

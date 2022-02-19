@@ -180,16 +180,24 @@ class _AddProductPageState extends State<AddProductPage> {
   }
 
   Future<void> addProduct() async {
-    // Call SharedPreference to get Token
+    SharedPreferences prefs = await _prefs;
+    if (_addFormKey.currentState!.validate()) {
+      var data = jsonEncode({
+        "name": _name.text,
+        "price": _price.text,
+        "type": _selectedType.value,
+      });
+      var url =
+          Uri.parse('https://laravelbackend100.herokuapp.com/api/products');
 
-    // Check Valid Form
+      var response = await http.post(url, body: data, headers: {
+        HttpHeaders.contentTypeHeader: 'application/json',
+        HttpHeaders.authorizationHeader: 'Bearer ${prefs.getString('token')}',
+      });
 
-    // Covert Values to Json
-
-    // Define Laravel API for Adding Product
-
-    // Request for adding product
-
-    // Check Status Code, then pop to the previous
+      if (response.statusCode == 201) {
+        Navigator.pop(context);
+      }
+    }
   }
 }
